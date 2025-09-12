@@ -26,6 +26,13 @@ def get_player_list():
         }
         
         response = requests.get(url, headers=headers)
+        
+        # --- NEW DIAGNOSTIC CODE ---
+        # This will print the exact status code and the full response text
+        st.write(f"API Response Status Code: {response.status_code}")
+        st.write(f"API Response Content: {response.text[:200]}...") # Truncated for readability
+        # --- END OF NEW CODE ---
+        
         response.raise_for_status() # Raises an HTTPError for bad status codes
         
         player_data = response.json()
@@ -42,7 +49,6 @@ def get_player_list():
         return wr_te_players
         
     except requests.exceptions.RequestException as e:
-        # Provide a specific error message for better debugging
         if e.response is not None:
             st.error(f"HTTP Error: Status Code {e.response.status_code} - URL: {e.request.url}")
         else:
@@ -58,7 +64,6 @@ st.write("Get a data-driven report on players for the rest of the season.")
 
 # --- User Input Section ---
 st.markdown("### Select Players to Analyze")
-# Calls the API function to populate the multiselect options
 PLAYER_OPTIONS = get_player_list()
 
 if not PLAYER_OPTIONS:
@@ -79,7 +84,6 @@ else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
                     # Your Gemini prompt logic remains here.
-                    # We can pass the selected_players list directly to Gemini.
                     
                     # --- Construct the Detailed Gemini Prompt ---
                     prompt_text = (
