@@ -11,7 +11,9 @@ try:
 except KeyError:
     st.error("API keys not found. Please add them to your Streamlit secrets.")
     st.stop()
-
+    
+# --- TEMPORARY DIAGNOSTIC LINE ---
+st.write(f"The SportsData API key read from secrets is: {SPORTS_DATA_API_KEY}")
 
 # --- Function to Get All Players from SportsData.io ---
 @st.cache_data(ttl=86400) # This will cache the player list for 24 hours (86400 seconds)
