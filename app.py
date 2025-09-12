@@ -11,38 +11,42 @@ try:
 except KeyError:
     st.error("API keys not found. Please add them to your Streamlit secrets.")
     st.stop()
-    
-# --- TEMPORARY DIAGNOSTIC LINE ---
-st.write(f"The SportsData API key read from secrets is: {SPORTS_DATA_API_KEY}")
+
 
 # --- Function to Get All Players from SportsData.io ---
-@st.cache_data(ttl=86400) # This will cache the player list for 24 hours (86400 seconds)
+@st.cache_data(ttl=86400) # Caches the player list for 24 hours
 def get_player_list():
     try:
         url = "https://api.sportsdata.io/v3/nfl/scores/json/Players"
+        
+        # Add a User-Agent header to mimic a browser request
         headers = {
-            'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY
+            'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
         response = requests.get(url, headers=headers)
-        response.raise_for_status() # Raises an error for bad status codes
+        response.raise_for_status() # Raises an HTTPError for bad status codes
         
         player_data = response.json()
         
-        # Filter for Wide Receivers (WR) and Tight Ends (TE)
+        # Filter for active Wide Receivers (WR) and Tight Ends (TE)
         wr_te_players = [
             player.get("Name")
             for player in player_data
             if player.get("Position") in ["WR", "TE"] and player.get("IsActive")
         ]
         
-        # Sort players alphabetically for a better user experience
         wr_te_players.sort()
         
         return wr_te_players
         
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching player data from API: {e}")
+        # Provide a specific error message for better debugging
+        if e.response is not None:
+            st.error(f"HTTP Error: Status Code {e.response.status_code} - URL: {e.request.url}")
+        else:
+            st.error(f"Network Error: {e}")
         return []
 
 
@@ -54,7 +58,7 @@ st.write("Get a data-driven report on players for the rest of the season.")
 
 # --- User Input Section ---
 st.markdown("### Select Players to Analyze")
-# Call the API function to populate the multiselect options
+# Calls the API function to populate the multiselect options
 PLAYER_OPTIONS = get_player_list()
 
 if not PLAYER_OPTIONS:
@@ -75,7 +79,7 @@ else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
                     # Your Gemini prompt logic remains here.
-                    # You can pass the selected_players list directly to Gemini.
+                    # We can pass the selected_players list directly to Gemini.
                     
                     # --- Construct the Detailed Gemini Prompt ---
                     prompt_text = (
@@ -121,6 +125,6 @@ else:
                     # Display the final report
                     st.markdown("### Detailed Report")
                     st.markdown(response.text)
-                
+
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
