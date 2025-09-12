@@ -26,18 +26,11 @@ def get_player_list():
         }
         
         response = requests.get(url, headers=headers)
-        
-        # --- NEW DIAGNOSTIC CODE ---
-        st.write(f"API Response Status Code: {response.status_code}")
-        st.write(f"API Response Content: {response.text[:200]}...")
-        # --- END OF NEW CODE ---
-        
         response.raise_for_status() # Raises an HTTPError for bad status codes
         
         player_data = response.json()
         
-        # --- CORRECTED FILTERING LOGIC ---
-        # Now checks for "Status" being "Active"
+        # Filter for active Wide Receivers (WR) and Tight Ends (TE)
         wr_te_players = [
             player.get("Name")
             for player in player_data
@@ -94,7 +87,7 @@ else:
                         "and over/under projections)."
                         "Here are the player names to analyze: " + ", ".join(selected_players) + "."
                         "For each player, provide a qualitative, in-depth analysis that simulates their possible production and "
-                        "high lights their potential fantasy football value. Confirm the context of who they are and make sure they "
+                        "highlights their potential fantasy football value. Confirm the context of who they are and make sure they "
                         "are on the right team based on most recent and reliable data sources."
                         "Evaluate each player based on the following criteria: "
                         "* Their team's overall offensive scheme and how it caters to their position. "
