@@ -29,8 +29,10 @@ def get_player_list(league_id):
         
         response = requests.get(url, headers=headers)
         response.raise_for_status()
+        
         player_data = response.json().get('response', [])
         
+        # Correctly handles the API response format
         wr_te_players = [
             f'{player.get("firstname")} {player.get("lastname")} ({player.get("team")})'
             for player in player_data
