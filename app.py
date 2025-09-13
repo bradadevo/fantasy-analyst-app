@@ -116,6 +116,10 @@ else:
                 try:
                     # --- Get the detailed stats for selected players ---
                     detailed_stats = get_player_stats(selected_players)
+
+                    # --- NEW DIAGNOSTIC CODE ---
+                    st.write("Data returned to the prompt:", detailed_stats)
+                    # --- END OF NEW CODE ---
                     
                     # --- Construct the Detailed Gemini Prompt with REAL Data ---
                     prompt_text = (
