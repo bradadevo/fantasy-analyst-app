@@ -146,4 +146,18 @@ else:
                         "Please provide a detailed analysis. Ensure all data points are meticulously vetted, cross-referenced with "
                         "multiple reputable sources, and validated for accuracy. The predictive models must be clearly explained, "
                         "detailing their underlying assumptions, limitations, and the specific metrics used for performance assessment. "
-                        "The final output must be logically coherent and
+                        "The final output must be logically coherent and provide a deep assessment of the given scenario, "
+                        "accounting for all relevant variables."
+                        f"\n\nHere is the raw, factual data for the analysis: {json.dumps(detailed_stats)}"
+                    )
+                    
+                    # Call the Gemini API
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(prompt_text)
+                    
+                    # Display the final report
+                    st.markdown("### Detailed Report")
+                    st.markdown(response.text)
+
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
