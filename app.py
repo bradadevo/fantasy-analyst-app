@@ -113,8 +113,8 @@ else:
                         "multiple reputable sources, and validated for accuracy. The predictive models must be clearly explained, "
                         "detailing their underlying assumptions, limitations, and the specific metrics used for performance assessment. "
                         "The final output must be logically coherent and provide a deep assessment of the given scenario, "
-                        "accounting for all relevant variables. Confirm that the relevant information has the player on the proper team. Do not make this mistake of not 
-                        verifying whether the player is on the current proper team"
+                        "accounting for all relevant variables. Confirm that the relevant information has the player on the proper team."
+                        "Do not make this mistake of not verifying whether the player is on the current proper team"
                     )
                     
                     # Call the Gemini API
