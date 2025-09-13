@@ -13,34 +13,39 @@ except KeyError:
     st.error("API keys not found. Please add them to your Streamlit secrets.")
     st.stop()
 
-
-# We will hard-code the NFL league ID to avoid an extra API call
+# New Base URL for the American Football API
+API_BASE_URL = "https://v1.american-football.api-sports.io"
 NFL_LEAGUE_ID = 1
-
 
 # --- Function to Get All Players from API-Sports ---
 @st.cache_data(ttl=86400) # Caches the player list for 24 hours
-def get_player_list(league_id):
+def get_player_list():
+    """
+    Fetches a list of all WR and TE players for the current NFL season.
+    Returns: A sorted list of player names and teams, or an empty list on error.
+    """
     try:
-        url = f"https://v1.american-football.api-sports.io/players?league={league_id}&season={datetime.now().year}"
-        headers = {
-            'x-apisports-key': API_SPORTS_KEY,
-        }
-        
-        response = requests.get(url, headers=headers)
+        # First, get the list of teams for the current season
+        teams_url = f"{API_BASE_URL}/teams?league={NFL_LEAGUE_ID}&season={datetime.now().year}"
+        headers = {'x-apisports-key': API_SPORTS_KEY}
+        response = requests.get(teams_url, headers=headers)
         response.raise_for_status()
+        teams_data = response.json().get('response', [])
         
-        player_data = response.json().get('response', [])
-        
-        # Correctly handles the API response format
-        wr_te_players = [
-            f'{player.get("firstname")} {player.get("lastname")} ({player.get("team")})'
-            for player in player_data
-            if player.get("position") in ["WR", "TE"]
-        ]
+        wr_te_players = []
+        for team in teams_data:
+            # For each team, get their roster
+            roster_url = f"{API_BASE_URL}/players?team={team['id']}&season={datetime.now().year}"
+            roster_response = requests.get(roster_url, headers=headers)
+            roster_response.raise_for_status()
+            roster_data = roster_response.json().get('response', [])
+            
+            for player in roster_data:
+                player_pos = player.get("position")
+                if player_pos in ["WR", "TE"]:
+                    wr_te_players.append(f'{player.get("firstname")} {player.get("lastname")} ({team.get("name")})')
         
         wr_te_players.sort()
-        
         return wr_te_players
         
     except requests.exceptions.RequestException as e:
@@ -49,7 +54,13 @@ def get_player_list(league_id):
 
 # --- Function to Get Detailed Player Stats ---
 @st.cache_data(ttl=3600) # Caches stats for 1 hour
-def get_player_stats(player_names, league_id):
+def get_player_stats(player_names):
+    """
+    Fetches detailed statistics for selected players.
+    Args:
+        player_names (list): A list of player names (e.g., ["Cooper Kupp (Los Angeles Rams)"]).
+    Returns: A dictionary of player stats, keyed by player name.
+    """
     if not player_names:
         return {}
 
@@ -57,41 +68,46 @@ def get_player_stats(player_names, league_id):
     player_stats_data = {}
     
     try:
-        url = f"https://v1.american-football.api-sports.io/players/statistics?league={league_id}&season={current_year}"
-        headers = {
-            'x-apisports-key': API_SPORTS_KEY,
-        }
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        all_stats_data = response.json().get('response', [])
-
-        stats_by_name = {f'{p.get("firstname")} {p.get("lastname")}': p for p in all_stats_data}
-
-        for player_name in player_names:
-            name_only = player_name.split(' (')[0]
-            stats = stats_by_name.get(name_only, None)
-
-            if stats:
-                player_stats_data[name_only] = stats
+        # Fetch detailed stats for each selected player individually
+        for player_full_name in player_names:
+            name_only = player_full_name.split(' (')[0]
             
+            # This API requires a player ID for stats, so we must find it first.
+            # We use a combined search to get the player ID
+            search_url = f"{API_BASE_URL}/players?league={NFL_LEAGUE_ID}&season={current_year}&search={name_only}"
+            headers = {'x-apisports-key': API_SPORTS_KEY}
+            search_response = requests.get(search_url, headers=headers)
+            search_response.raise_for_status()
+            search_results = search_response.json().get('response', [])
+            
+            player_id = None
+            if search_results:
+                player_id = search_results[0].get('id')
+            
+            if player_id:
+                stats_url = f"{API_BASE_URL}/players/statistics?id={player_id}&season={current_year}"
+                stats_response = requests.get(stats_url, headers=headers)
+                stats_response.raise_for_status()
+                stats_result = stats_response.json().get('response', [])
+                
+                if stats_result:
+                    player_stats_data[name_only] = stats_result[0] # Get the first result
+    
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching stats for players: {e}")
         return {}
-    
+        
     return player_stats_data
-
 
 # --- Page Setup and Title ---
 st.set_page_config(page_title="Fantasy Football Analyst", layout="wide")
 st.title("🏈 Fantasy Football Player Analyst")
 st.write("Get a data-driven report on players for the rest of the season.")
 
-
 # --- User Input Section ---
 st.markdown("### Select Players to Analyze")
 
-PLAYER_OPTIONS = get_player_list(NFL_LEAGUE_ID)
+PLAYER_OPTIONS = get_player_list()
     
 if not PLAYER_OPTIONS:
     st.warning("Could not load the player list. Please check your API key and try again later.")
@@ -109,8 +125,12 @@ else:
         else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
-                    detailed_stats = get_player_stats(selected_players, NFL_LEAGUE_ID)
+                    detailed_stats = get_player_stats(selected_players)
                     
+                    if not detailed_stats:
+                        st.error("No statistics were found for the selected players. They may not have played yet or the data is not available.")
+                        st.stop()
+
                     prompt_text = (
                         "Act as a top-tier fantasy football analyst. I have compiled the following up-to-date player data for the current NFL season: "
                         "Player data: {provided_player_data}. "
