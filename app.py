@@ -132,4 +132,18 @@ else:
                         "Using this data, provide a concise analysis of each player's fantasy football value for the remainder of the season. Focus on their current production and how it compares to other players at their position. "
                         "Your analysis must include: "
                         "* A quick overview of each player's statistical performance based on the provided data. "
-                        "* A brief commentary on their potential fantasy football
+                        "* A brief commentary on their potential fantasy football value (e.g., \"High-End WR1\", \"Mid-Range TE2\"). "
+                        "After the analysis, present all of the information in a single, comprehensive data table with the following columns in this exact order: "
+                        "Player Name, Team, Position, Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, RushingTouchdowns, FumblesLost, and OverallFantasyFootballValue. "
+                        "Sort the table by highest to lowest ReceivingYards. Ensure all data in the table is directly from the provided JSON. Do not add any new projections or statistics beyond what you are given."
+                        f"\n\nHere is the raw, factual data for the analysis: {json.dumps(detailed_stats)}"
+                    )
+                    
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(prompt_text)
+                    
+                    st.markdown("### Detailed Report")
+                    st.markdown(response.text)
+
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
