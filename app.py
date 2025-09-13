@@ -3,6 +3,7 @@ import os
 import json
 import requests
 import google.generativeai as genai
+from datetime import datetime
 
 # --- Load API Keys from Streamlit Secrets ---
 try:
@@ -19,18 +20,16 @@ def get_player_list():
     try:
         url = "https://api.sportsdata.io/v3/nfl/scores/json/Players"
         
-        # Add a User-Agent header to mimic a browser request
         headers = {
             'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
         response = requests.get(url, headers=headers)
-        response.raise_for_status() # Raises an HTTPError for bad status codes
+        response.raise_for_status()
         
         player_data = response.json()
         
-        # Filter for active Wide Receivers (WR) and Tight Ends (TE)
         wr_te_players = [
             f'{player.get("Name")} ({player.get("Team")})'
             for player in player_data
@@ -53,11 +52,15 @@ def get_player_list():
 def get_player_stats(player_names):
     if not player_names:
         return {}
+
+    # Get the current NFL season year
+    current_year = datetime.now().year
     
     player_stats_data = {}
     
     try:
-        url = "https://api.sportsdata.io/v3/nfl/scores/json/Players"
+        # We will use the PlayerSeasonStats endpoint for detailed stats
+        url = f"https://api.sportsdata.io/v3/nfl/stats/json/PlayerSeasonStats/{current_year}"
         headers = {
             'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -65,14 +68,14 @@ def get_player_stats(player_names):
         
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        all_players_data = response.json()
+        all_stats_data = response.json()
         
         for player_name in player_names:
-            # The player name in the dropdown is "Name (Team)". We need to get just the name.
+            # The player name in the dropdown is "Name (Team)". Get just the name.
             name_only = player_name.split(' (')[0]
             
             # Find the player's stats from the full data list
-            stats = next((p for p in all_players_data if p.get('Name') == name_only), None)
+            stats = next((p for p in all_stats_data if p.get('Name') == name_only), None)
             
             if stats:
                 player_stats_data[name_only] = stats
@@ -83,10 +86,12 @@ def get_player_stats(player_names):
     
     return player_stats_data
 
+
 # --- Page Setup and Title ---
 st.set_page_config(page_title="Fantasy Football Analyst", layout="wide")
 st.title("🏈 Fantasy Football Player Analyst")
 st.write("Get a data-driven report on players for the rest of the season.")
+
 
 # --- User Input Section ---
 st.markdown("### Select Players to Analyze")
@@ -110,16 +115,14 @@ else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
                     # --- Get the detailed stats for selected players ---
-                    # This is the new API call that provides real-time data to Gemini
                     detailed_stats = get_player_stats(selected_players)
                     
                     # --- Construct the Detailed Gemini Prompt with REAL Data ---
                     prompt_text = (
                         "Act as a top-tier fantasy football analyst. I need a deep, data-driven analysis of a specific group of "
                         "either tight ends or wide receivers for the remainder of the season. Your analysis must be based on the "
-                        "most reputable data sources available, Confirm that your sources are the most recent available, "
-                        "including expert rankings, team scheme evaluations, and \"Vegas data\" (betting odds, win totals, "
-                        "and over/under projections)."
+                        "provided, up-to-date data. You are a subject matter expert and can use your training to find nuanced insights, "
+                        "but you must prioritize the provided data for all player context and projections. "
                         "Here are the player names to analyze: " + ", ".join(selected_players) + "."
                         "For each player, provide a qualitative, in-depth analysis that simulates their possible production and "
                         "highlights their potential fantasy football value. Confirm the context of who they are and make sure they "
