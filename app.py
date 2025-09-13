@@ -27,7 +27,7 @@ def get_nfl_league_id():
         response.raise_for_status()
         leagues = response.json().get('response', [])
         
-        # Find the NFL league ID
+        # Find the NFL league ID (ID is typically 1)
         nfl_league = next((l for l in leagues if l.get('name') == 'NFL'), None)
         return nfl_league.get('id') if nfl_league else None
         
