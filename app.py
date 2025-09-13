@@ -137,30 +137,4 @@ else:
                         "Finally, present all of the information in a single, comprehensive data table with the following columns "
                         "in this exact order: "
                         "Player Name, Team, Bye Week, Projected Catches, Projected Yards, Projected Touchdowns, % Time Behind, "
-                        "Upside (1-10), % First Read Target Share (Season Projection), Likely Snap Count Percentage, "
-                        "Overall Fantasy Football Value, Fantasy Points, Targets per route run, Teams Offensive Plays/Count per game, "
-                        "Yards per route run, Red Zone Target share. "
-                        "Sort the final table by highest possible fantasy points using a half-PPR scoring format "
-                        "(.5 points per reception, 6 points per TD, and 1 point per 10 yards)."
-                        "Definition Details: "
-                        "Always list the table column definitions out as the last text below the article. For all definitions except "
-                        "Player Name, Team, Bye Week, explain the details of what a high, med, and low measurement should be to move a "
-                        "player from a low, med, high end player in their position for measurement definition."
-                        "Please provide a detailed analysis. Ensure all data points are meticulously vetted, cross-referenced with "
-                        "multiple reputable sources, and validated for accuracy. The predictive models must be clearly explained, "
-                        "detailing their underlying assumptions, limitations, and the specific metrics used for performance assessment. "
-                        "The final output must be logically coherent and provide a deep assessment of the given scenario, "
-                        "accounting for all relevant variables."
-                        f"\n\nHere is the raw, factual data for the analysis: {json.dumps(detailed_stats)}"
-                    )
-                    
-                    # Call the Gemini API
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(prompt_text)
-                    
-                    # Display the final report
-                    st.markdown("### Detailed Report")
-                    st.markdown(response.text)
-
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                        "Upside (1-10
