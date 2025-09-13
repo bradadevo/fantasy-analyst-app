@@ -48,35 +48,35 @@ def get_player_list():
         return []
 
 # --- New Function to Get Detailed Player Stats ---
-@st.cache_data(ttl=3600) # Caches stats for 1 hour to prevent excessive API calls
+@st.cache_data(ttl=3600) # Caches stats for 1 hour
 def get_player_stats(player_names):
     if not player_names:
         return {}
 
-    # Get the current NFL season year
     current_year = datetime.now().year
     
-    player_stats_data = {}
-    
     try:
-        # We will use the PlayerSeasonStats endpoint for detailed stats
         url = f"https://api.sportsdata.io/v3/nfl/stats/json/PlayerSeasonStats/{current_year}"
         headers = {
-            'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
+            'Ocp-Apim-Subscription-Key': st.secrets['SPORTS_DATA_API_KEY'],
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         all_stats_data = response.json()
-        
+
+        # Create a dictionary to map player names to their stats for faster lookup
+        stats_by_name = {player.get('Name'): player for player in all_stats_data}
+
+        player_stats_data = {}
         for player_name in player_names:
             # The player name in the dropdown is "Name (Team)". Get just the name.
             name_only = player_name.split(' (')[0]
             
-            # Find the player's stats from the full data list
-            stats = next((p for p in all_stats_data if p.get('Name') == name_only), None)
-            
+            # Look up the player's stats in the dictionary
+            stats = stats_by_name.get(name_only, None)
+
             if stats:
                 player_stats_data[name_only] = stats
             
@@ -85,7 +85,6 @@ def get_player_stats(player_names):
         return {}
     
     return player_stats_data
-
 
 # --- Page Setup and Title ---
 st.set_page_config(page_title="Fantasy Football Analyst", layout="wide")
