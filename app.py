@@ -31,8 +31,9 @@ def get_player_list():
         player_data = response.json()
         
         # Filter for active Wide Receivers (WR) and Tight Ends (TE)
+        # Now returns a formatted string: "Player Name (Team)"
         wr_te_players = [
-            player.get("Name")
+            f'{player.get("Name")} ({player.get("Team")})'
             for player in player_data
             if player.get("Position") in ["WR", "TE"] and player.get("Status") == "Active"
         ]
@@ -112,7 +113,8 @@ else:
                         "multiple reputable sources, and validated for accuracy. The predictive models must be clearly explained, "
                         "detailing their underlying assumptions, limitations, and the specific metrics used for performance assessment. "
                         "The final output must be logically coherent and provide a deep assessment of the given scenario, "
-                        "accounting for all relevant variables."
+                        "accounting for all relevant variables. Confirm that the relevant information has the player on the proper team. Do not make this mistake of not 
+                        verifying whether the player is on the current proper team"
                     )
                     
                     # Call the Gemini API
