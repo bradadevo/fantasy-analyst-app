@@ -58,7 +58,7 @@ def get_player_stats(player_names):
     try:
         url = f"https://api.sportsdata.io/v3/nfl/stats/json/PlayerSeasonStats/{current_year}"
         headers = {
-            'Ocp-Apim-Subscription-Key': st.secrets['SPORTS_DATA_API_KEY'],
+            'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
@@ -85,6 +85,7 @@ def get_player_stats(player_names):
         return {}
     
     return player_stats_data
+
 
 # --- Page Setup and Title ---
 st.set_page_config(page_title="Fantasy Football Analyst", layout="wide")
@@ -115,10 +116,6 @@ else:
                 try:
                     # --- Get the detailed stats for selected players ---
                     detailed_stats = get_player_stats(selected_players)
-
-                    # --- NEW DIAGNOSTIC CODE ---
-                    st.write("Data returned to the prompt:", detailed_stats)
-                    # --- END OF NEW CODE ---
                     
                     # --- Construct the Detailed Gemini Prompt with REAL Data ---
                     prompt_text = (
