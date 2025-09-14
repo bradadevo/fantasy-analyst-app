@@ -3,47 +3,53 @@ import os
 import json
 import requests
 import google.generativeai as genai
+from datetime import datetime
 
-# --- Load API Keys from Streamlit Secrets ---
+# --- SETUP GEMINI WITH STREAMLIT SECRETS ---
 try:
     genai.configure(api_key=st.secrets['GEMINI_API_KEY'])
-    SPORTS_DATA_API_KEY = st.secrets['SPORTS_DATA_API_KEY']
 except KeyError:
-    st.error("API keys not found. Please add them to your Streamlit secrets.")
+    st.error("GEMINI_API_KEY not found. Please add it to your Streamlit secrets.")
     st.stop()
 
-# --- Function to Get All Players from SportsData.io ---
-@st.cache_data(ttl=86400) # Caches the player list for 24 hours
+# --- DATA FETCHING FROM ESPN FANTASY API ---
+@st.cache_data(ttl=3600)
 def get_all_players_data():
-    """Fetches a complete list of all NFL players from SportsData.io."""
+    """
+    Fetches a comprehensive list of all active NFL players with stats from ESPN's unofficial API.
+    Returns: A list of dictionaries, where each dictionary is a player's profile.
+    """
+    current_year = datetime.now().year
+    url = f"https://fantasy.espn.com/apis/v3/games/ffl/seasons/{current_year}/players?view=players_wl"
+    headers = {
+        'User-Agent': 'Mozilla/5.0'
+    }
+    
     try:
-        url = "https://api.sportsdata.io/v3/nfl/scores/json/Players"
-        headers = {
-            'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
-        }
-        
         response = requests.get(url, headers=headers)
-        response.raise_for_status() # Raises an HTTPError for bad status codes
+        response.raise_for_status()
         
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        if e.response is not None:
-            st.error(f"HTTP Error: Status Code {e.response.status_code} - URL: {e.request.url}")
+        # Check if the response content-type is JSON before parsing
+        if 'application/json' in response.headers.get('Content-Type', ''):
+            players_data = response.json().get('players', [])
+            return [p['player'] for p in players_data if 'player' in p]
         else:
-            st.error(f"Network Error: {e}")
+            st.error("The API did not return a valid JSON response. It may be temporarily unavailable or the endpoint has changed.")
+            return []
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching player data from ESPN API: {e}")
         return []
 
-# --- Function to Get Player List for Multiselect ---
+# --- Function to Get Player List for Multiselect (remains unchanged) ---
 def get_player_list_options(all_players):
     """Filters the full player data for WRs and TEs to populate the multiselect."""
     wr_te_players = [
-        f'{player.get("Name")} ({player.get("Team")})'
+        f'{player.get("fullName")} ({player.get("proTeamId")})'
         for player in all_players
-        if player.get("Position") in ["WR", "TE"] and player.get("Status") == "Active"
+        if player.get("defaultPositionId") in [3, 4, 5, 6, 7] # Mapping for ESPN positions
     ]
     wr_te_players.sort()
     return wr_te_players
-
 
 # --- Function to Get Detailed Player Stats for AI Prompt ---
 def get_player_stats(selected_players, all_players):
@@ -51,26 +57,62 @@ def get_player_stats(selected_players, all_players):
     player_stats_data = {}
     
     # Create a lookup dictionary for efficient searching
-    player_lookup = {f'{p.get("Name")} ({p.get("Team")})': p for p in all_players}
+    player_lookup = {f'{p.get("fullName")} ({p.get("proTeamId")})': p for p in all_players}
     
     for player_full_name in selected_players:
         stats = player_lookup.get(player_full_name)
         if stats:
-            player_stats_data[player_full_name] = stats
+            # Reformat the stats to match the expected format for the AI prompt
+            reformatted_stats = {
+                "Player Name": stats.get("fullName"),
+                "Team": stats.get("proTeamId"),
+                "Position": stats.get("position"),
+                "Receptions": stats.get("stats", {}).get("21", 0),  # ESPN stats are by ID, 21 is receptions
+                "ReceivingYards": stats.get("stats", {}).get("42", 0), # 42 is receiving yards
+                "ReceivingTouchdowns": stats.get("stats", {}).get("45", 0), # 45 is receiving touchdowns
+                "RushingYards": stats.get("stats", {}).get("4", 0), # 4 is rushing yards
+                "RushingTouchdowns": stats.get("stats", {}).get("5", 0), # 5 is rushing touchdowns
+                "FumblesLost": stats.get("stats", {}).get("24", 0), # 24 is fumbles lost
+            }
+            player_stats_data[player_full_name] = reformatted_stats
         
     return player_stats_data
 
 
-# --- Page Setup and Title ---
+# --- AI SUMMARY (Gemini) ---
+def generate_ai_summary(player_stats_dict):
+    """Generates an AI summary comparing player stats."""
+    prompt = "You are an expert fantasy football analyst. Compare these players using the tables below:\n\n"
+    
+    valid_players = {player: df for player, df in player_stats_dict.items() if df is not None}
+    
+    if not valid_players:
+        return "No player data was found to generate an AI summary."
+        
+    for player, stats in valid_players.items():
+        # Create a DataFrame for each player for clean formatting in the prompt
+        df = pd.DataFrame([stats])
+        prompt += f"\n### {player}\n{df.to_string(index=False)}\n"
+
+    prompt += "\nGive a clear summary of who has the best outlook this week and why. Keep it concise but insightful."
+
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"An error occurred while generating the AI summary: {e}"
+
+# --- STREAMLIT APP LAYOUT ---
 st.set_page_config(page_title="Fantasy Football Analyst", layout="wide")
 st.title("🏈 Fantasy Football Player Analyst")
-st.write("Get a data-driven report on players for the rest of the season.")
+st.write("Using ESPN data with **AI-powered reasoning** by Gemini.")
 
 # Fetch all players once and cache the result
 all_players_data = get_all_players_data()
 
 if not all_players_data:
-    st.warning("Could not load the full player list from SportsData.io. Please check your API key and try again.")
+    st.warning("Could not load the full player list. The ESPN API may be temporarily down or its structure has changed. Please try again later.")
     st.stop()
 else:
     PLAYER_OPTIONS = get_player_list_options(all_players_data)
@@ -87,31 +129,16 @@ else:
         else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
-                    # Fix: The `get_player_stats` function is now called here to define `detailed_stats`.
                     detailed_stats = get_player_stats(selected_players, all_players_data)
-
+                    
                     if not detailed_stats:
                         st.error("No statistics were found for the selected players. The API may not have data for them yet.")
                         st.stop()
-
-                    prompt_text = (
-                        "Act as a top-tier fantasy football analyst. I have compiled the following up-to-date player data for the current NFL season: "
-                        "Player data: {provided_player_data}. "
-                        "Using this data, provide a concise analysis of each player's fantasy football value for the remainder of the season. Focus on their current production and how it compares to other players at their position based on the provided statistics. "
-                        "Your analysis must include: "
-                        "* A quick overview of each player's statistical performance based on the provided data. "
-                        "* A brief commentary on their potential fantasy football value (e.g., \"High-End WR1\", \"Mid-Range TE2\"). "
-                        "After the analysis, present all of the information in a single, comprehensive data table with the following columns in this exact order: "
-                        "Player Name, Team, Position, Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, RushingTouchdowns, FumblesLost, and OverallFantasyFootballValue. "
-                        "Sort the table by highest to lowest ReceivingYards. Ensure all data in the table is directly from the provided JSON. Do not add any new projections or statistics beyond what you are given."
-                        f"\n\nHere is the raw, factual data for the analysis: {json.dumps(detailed_stats)}"
-                    )
                     
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(prompt_text)
+                    ai_summary = generate_ai_summary(detailed_stats)
                     
                     st.markdown("### Detailed Report")
-                    st.markdown(response.text)
+                    st.markdown(ai_summary)
 
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
