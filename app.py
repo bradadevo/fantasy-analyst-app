@@ -54,15 +54,17 @@ def generate_ai_summary(selected_players):
         return "Please select at least one player to generate an analysis."
     
     player_names_str = ", ".join(selected_players)
+    current_date = datetime.now().strftime("%B %d, %Y")
     
     prompt = (
         "Act as a top-tier fantasy football analyst. My task is to provide a concise analysis of the following NFL players: "
         f"{player_names_str}. "
-        "Your first step is to perform a Google Search to get the latest 2025 seasonal statistics for each of these players. "
-        "Make sure to include stats like Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, and RushingTouchdowns. "
+        f"For each player, perform a Google Search to get their latest 2025 seasonal statistics as of {current_date}. "
+        "Double-check the data from at least two reliable fantasy sports or NFL sources to ensure accuracy. "
+        "Make sure to include stats like Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, RushingTouchdowns, and FumblesLost. "
         "Once you have the data, provide a concise analysis of each player's fantasy football value for the remainder of the season. "
         "Your analysis must include: "
-        "* A quick overview of each player's statistical performance based on the data you found. "
+        "* A quick overview of each player's statistical performance based on the verified data you found. "
         "* A brief commentary on their potential fantasy football value (e.g., \"High-End WR1\", \"Mid-Range TE2\"). "
         "After the analysis, present all of the information in a single, comprehensive data table with the following columns in this exact order: "
         "Player Name, Team, Position, Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, RushingTouchdowns, FumblesLost, and OverallFantasyFootballValue. "
@@ -101,7 +103,6 @@ else:
         else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
-                    # FIX: Call the refactored function that doesn't rely on the API for stats
                     ai_summary = generate_ai_summary(selected_players)
                     
                     st.markdown("### Detailed Report")
