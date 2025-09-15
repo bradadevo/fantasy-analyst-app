@@ -44,54 +44,32 @@ def get_player_list_options(all_players):
     wr_te_players.sort()
     return wr_te_players
 
-def get_detailed_stats(player_ids):
-    """
-    Fetches detailed statistics for selected players by making a new API call
-    for each player's stats.
-    """
-    detailed_stats_list = []
-    
-    current_season_year = datetime.now().year
-
-    for player_id in player_ids:
-        try:
-            url = f"https://api.sportsdata.io/v3/nfl/scores/json/PlayerSeasonStatsByPlayerID/{current_season_year}/{player_id}"
-            headers = {
-                'Ocp-Apim-Subscription-Key': SPORTS_DATA_API_KEY,
-            }
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            player_stats = response.json()
-
-            if player_stats and isinstance(player_stats, dict):
-                detailed_stats_list.append(player_stats)
-            else:
-                st.warning(f"No detailed stats found for PlayerID: {player_id}.")
-        except requests.exceptions.RequestException as e:
-            st.warning(f"Could not retrieve data for a player with ID {player_id}. Error: {e}")
-            continue
-            
-    return detailed_stats_list
-
-
 # --- AI SUMMARY (Gemini) ---
-def generate_ai_summary(player_stats_dict):
-    """Generates an AI summary comparing player stats."""
-    prompt = "You are an expert fantasy football analyst. Compare these players using the tables below:\n\n"
+# Refactored to not rely on get_detailed_stats and to use the LLM to get data
+def generate_ai_summary(selected_players):
+    """
+    Generates an AI summary by instructing the Gemini LLM to find and analyze player data.
+    """
+    if not selected_players:
+        return "Please select at least one player to generate an analysis."
     
-    valid_players = {player: df for player, df in player_stats_dict.items() if df is not None}
+    player_names_str = ", ".join(selected_players)
     
-    if not valid_players:
-        return "No player data was found to generate an AI summary."
-        
-    for player, stats in valid_players.items():
-        df = pd.DataFrame([stats])
-        prompt += f"\n### {player}\n{df.to_string(index=False)}\n"
-
-    prompt += "\nGive a clear summary of who has the best outlook this week and why. Keep it concise but insightful."
-
+    prompt = (
+        "Act as a top-tier fantasy football analyst. My task is to provide a concise analysis of the following NFL players: "
+        f"{player_names_str}. "
+        "Your first step is to perform a Google Search to get the latest 2025 seasonal statistics for each of these players. "
+        "Make sure to include stats like Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, and RushingTouchdowns. "
+        "Once you have the data, provide a concise analysis of each player's fantasy football value for the remainder of the season. "
+        "Your analysis must include: "
+        "* A quick overview of each player's statistical performance based on the data you found. "
+        "* A brief commentary on their potential fantasy football value (e.g., \"High-End WR1\", \"Mid-Range TE2\"). "
+        "After the analysis, present all of the information in a single, comprehensive data table with the following columns in this exact order: "
+        "Player Name, Team, Position, Receptions, ReceivingYards, ReceivingTouchdowns, RushingYards, RushingTouchdowns, FumblesLost, and OverallFantasyFootballValue. "
+        "Sort the table by highest to lowest ReceivingYards. Ensure all data in the table is directly from the data you found. Do not add any new projections or statistics beyond what you are given."
+    )
+    
     try:
-        # UPDATED: Using the gemini-2.5-flash model
         model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         return response.text
@@ -123,18 +101,8 @@ else:
         else:
             with st.spinner("Analyzing players and generating your report..."):
                 try:
-                    player_id_map = {f'{p.get("Name")} ({p.get("Team")})': p.get("PlayerID") for p in all_players_data}
-                    selected_player_ids = [player_id_map[name] for name in selected_players]
-
-                    detailed_stats_list = get_detailed_stats(selected_player_ids)
-                    
-                    if not detailed_stats_list:
-                        st.error("No statistics were found for the selected players. The API may not have data for them yet.")
-                        st.stop()
-                    
-                    detailed_stats = {f'{p.get("Name")} ({p.get("Team")})': p for p in detailed_stats_list}
-
-                    ai_summary = generate_ai_summary(detailed_stats)
+                    # FIX: Call the refactored function that doesn't rely on the API for stats
+                    ai_summary = generate_ai_summary(selected_players)
                     
                     st.markdown("### Detailed Report")
                     st.markdown(ai_summary)
